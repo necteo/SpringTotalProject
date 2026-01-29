@@ -8,7 +8,7 @@ pipeline {
 		EC2_HOST = "34.224.165.166"
 		EC2_USER = "ubuntu"
 		PORT = "9090"
-		COMPOSE_FILE = "docker-compose.yml"
+		COMPOSE_FILE = "~/app/docker-compose.yml"
 	}
 	
 	stages {
