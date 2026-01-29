@@ -1,5 +1,5 @@
 services:
   app:
-    image: necteo/boot-app
+    image: necteo/total-app
     ports:
       - '9090:9090'

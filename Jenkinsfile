@@ -58,14 +58,6 @@ pipeline {
 				sh 'docker push ${DOCKER_IMAGE}:${DOCKER_TAG}'
 			}
 		}
-		
-		stage('DockerHub Pull') {
-			steps {
-				echo 'DockerHub Pull'
-				sh 'docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}'
-			}
-		}
-		
 		/*
 		stage('Add SSH key') {
 			steps {
@@ -102,7 +94,7 @@ EOF
 				sh 'docker compose -f ${COMPOSE_FILE} down || true'
 			}
 		}
-		/*
+		
 		stage('Docker Stop and Remove') {
 			steps {
 				echo 'docker stop rm'
@@ -113,7 +105,7 @@ EOF
 					 '''
 			}
 		}
-		*/
+		
 		stage('Docker Compose Up') {
 			steps {
 				echo 'docker-compose up'
