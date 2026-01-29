@@ -7,6 +7,7 @@ pipeline {
 		CONTAINER = "total-app"
 		EC2_HOST = "34.224.165.166"
 		EC2_USER = "ubuntu"
+		PORT = "9090"
 	}
 	
 	stages {
@@ -68,7 +69,7 @@ pipeline {
 								docker stop ${CONTAINER} || true
 								docker rm ${CONTAINER} || true
 								docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
-								docker run --name ${CONTAINER} -d -p 9090:9090 ${DOCKER_IMAGE}:${DOCKER_TAG}
+								docker run --name ${CONTAINER} -d -p ${PORT}:${PORT} ${DOCKER_IMAGE}:${DOCKER_TAG}
 EOF
 						 """
 				}
