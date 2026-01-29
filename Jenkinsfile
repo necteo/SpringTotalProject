@@ -4,7 +4,8 @@ pipeline {
 	stages {
 		stage('Git Check Test') {
 			steps {
-				git branch: 'main'
+				git branch: 'main',
+				url: 'https://github.com/necteo/SpringTotalProject.git'
 			}
 		}
 		 
