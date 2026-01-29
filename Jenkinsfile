@@ -8,7 +8,7 @@ pipeline {
 				url: https://github.com/necteo/SpringTotalProject.git
 			}
 		}
-		
+		 
 		stage('Check Git Info') {
 			steps {
 				sh '''
