@@ -8,6 +8,7 @@ pipeline {
 		EC2_HOST = "34.224.165.166"
 		EC2_USER = "ubuntu"
 		PORT = "9090"
+		COMPOSE_FILE = "docker-compose.yml"
 	}
 	
 	stages {
@@ -58,6 +59,14 @@ pipeline {
 			}
 		}
 		
+		stage('DockerHub Pull') {
+			steps {
+				echo 'DockerHub Pull'
+				sh 'docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}'
+			}
+		}
+		
+		/*
 		stage('Add SSH key') {
 			steps {
 				echo 'Add SSH key'
@@ -75,31 +84,42 @@ EOF
 				}
 			}
 		}
+		*/
+		stage('Add SSH key') {
+			steps {
+				echo 'Add SSH key'
+				sshagent(credentials: ['SERVER_KEY']) {
+					sh """
+							ssh-keyscan -t ed25519 ${EC2_HOST} >> ~/.ssh/known_hosts
+						 """
+				}
+			}
+		}
 		
-		/*stage('Docker Compose Down') {
+		stage('Docker Compose Down') {
 			steps {
 				echo 'docker-compose down'
 				sh 'docker compose -f ${COMPOSE_FILE} down || true'
 			}
 		}
-		
+		/*
 		stage('Docker Stop and Remove') {
 			steps {
 				echo 'docker stop rm'
 				sh '''
-						docker stop ${CONTAINER_NAME} || true
-						docker rm ${CONTAINER_NAME} || true
+						docker stop ${CONTAINER} || true
+						docker rm ${CONTAINER} || true
 						docker pull ${DOCKER_IMAGE}
 					 '''
 			}
 		}
-		
+		*/
 		stage('Docker Compose Up') {
 			steps {
 				echo 'docker-compose up'
 				sh 'docker compose -f ${COMPOSE_FILE} up -d'
 			}
-		}*/
+		}
 		
 		/*stage('Docker Run') {
 			steps {
