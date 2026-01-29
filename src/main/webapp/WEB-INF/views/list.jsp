@@ -28,6 +28,7 @@ p {
 <body>
 	<div class="container">
 		<div class="row">
+			<h3>목록</h3>
 			<c:forEach var="vo" items="${ data.list }">
 				<div class="col-md-3">
 			    <div class="thumbnail">
