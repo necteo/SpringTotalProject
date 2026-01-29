@@ -1,0 +1,28 @@
+#port = 8080 = aws : 8080허용 / 1521 / 3306
+#JSP / Security / Batch
+server:
+  port: 9090
+
+spring:
+  mvc:
+    view:
+      prefix: /WEB-INF/views/
+      suffix: .jsp
+
+  datasource:
+    url: jdbc:oracle:thin:@211.238.142.22:1521:XE
+    username: hr
+    password: happy
+    driver-class-name: oracle.jdbc.OracleDriver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 10
+      idle-timeout: 600000
+      max-lifetime: 1800000 
+      connection-timeout: 30000
+
+#MyBatis
+mybatis:
+  type-aliases-package: com.sist.web.vo
+  mapper-locations: mybatis/mapper/*.xml
