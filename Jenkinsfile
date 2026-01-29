@@ -1,88 +1,126 @@
 pipeline {
 	agent any
 	
-	// 전역변수 => ${SERVER_IP}
 	environment {
-		SERVER_IP = "34.224.165.166"
-		SERVER_USER = "ubuntu"
-		APP_DIR = "~/app"
-		JAR_NAME = "SpringTotalProject-0.0.1-SNAPSHOT.war"
+		DOCKER_IMAGE = "necteo/total-app"
+		DOCKER_TAG = "latest"
+		CONTAINER = "total-app"
+		EC2_HOST = "34.224.165.166"
+		EC2_USER = "ubuntu"
 	}
 	
 	stages {
-		/*
-		연결 확인 = ngrok
-		stage('Git Check Test') {
-			steps {
-				git branch: 'main',
-				url: 'https://github.com/necteo/SpringTotalProject.git'
-			}
-		}
-		 
-		stage('Check Git Info') {
-			steps {
-				sh '''
-						echo "===Git Info==="
-						git branch
-						git log -1
-					 '''
-			}
-		}
-		*/
-		// 감지 = main : push (commit)
-		stage('Check Out') {
+		// Git 연결 => Git 주소
+		stage('Checkout') {
 			steps {
 				echo 'Git Checkout'
 				checkout scm
 			}
 		}
-		
-		// gradlew build => war파일을 다시 생성
-		stage('Gradle Permission') {
-			steps {
-				sh 'chmod +x gradlew'
-			}
-		}
-		
-		// build 시작
+		// 배포판 만들기
 		stage('Gradle Build') {
 			steps {
-				sh './gradlew clean build'
+				echo 'Gradle Build'
+				sh '''
+						chmod +x gradlew
+						./gradlew clean build -x test
+					 '''
 			}
 		}
 		
-		// war파일 전송 = rsync / scp
-		stage('Deploy = rsync') {
+		stage('Docker Build') {
 			steps {
-				sshagent(credentials:['SERVER_KEY']) {
-					sh """
-							rsync -avz -e 'ssh -o StrictHostKeyChecking=no' build/libs/*.war ${SERVER_USER}@${SERVER_IP}:${APP_DIR}
-						 """
+				echo 'Docker Image Build'
+				sh '''
+						docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+					 '''
+			}
+		}
+		
+		stage('DockerHub Login') {
+			steps {
+				echo 'DockerHub Login'
+				withCredentials([usernamePassword(
+					credentialsId: 'dockerhub-credential',
+					usernameVariable: 'DOCKER_ID',
+					passwordVariable: 'DOCKER_PW'
+				)]) {
+					sh 'echo $DOCKER_PW | docker login -u $DOCKER_ID --password-stdin'
 				}
 			}
 		}
 		
-		// 실행 명령
-		stage('Run Application') {
+		stage('DockerHub Push') {
 			steps {
-				sshagent(credentials:['SERVER_KEY']) {
+				echo 'DockerHub Push'
+				sh 'docker push ${DOCKER_IMAGE}:${DOCKER_TAG}'
+			}
+		}
+		
+		stage('Add SSH key') {
+			steps {
+				echo 'Add SSH key'
+				sshagent(credentials: ['SERVER_KEY']) {
 					sh """
-							ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} << 'EOF'
-								pkill -f 'java -jar' || true
-								nohup java -jar ${APP_DIR}/${JAR_NAME} > log.txt 2>&1 &
+							ssh-keyscan -t ed25519 ${EC2_HOST} >> ~/.ssh/known_hosts
+							
+							ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} << 'EOF'
+								docker stop ${CONTAINER} || true
+								docker rm ${CONTAINER} || true
+								docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
+								docker run --name ${CONTAINER} -d -p 9090:9090 ${DOCKER_IMAGE}:${DOCKER_TAG}
 EOF
 						 """
 				}
 			}
 		}
+		
+		/*stage('Docker Compose Down') {
+			steps {
+				echo 'docker-compose down'
+				sh 'docker compose -f ${COMPOSE_FILE} down || true'
+			}
+		}
+		
+		stage('Docker Stop and Remove') {
+			steps {
+				echo 'docker stop rm'
+				sh '''
+						docker stop ${CONTAINER_NAME} || true
+						docker rm ${CONTAINER_NAME} || true
+						docker pull ${DOCKER_IMAGE}
+					 '''
+			}
+		}
+		
+		stage('Docker Compose Up') {
+			steps {
+				echo 'docker-compose up'
+				sh 'docker compose -f ${COMPOSE_FILE} up -d'
+			}
+		}*/
+		
+		/*stage('Docker Run') {
+			steps {
+				echo 'Docker Run'
+				sh '''
+						docker stop ${CONTAINER_NAME} || true
+						docker rm ${CONTAINER_NAME} || true
+						
+						docker pull ${DOCKER_IMAGE}:${DOCKER_TAG}
+						
+						docker run --name ${CONTAINER_NAME} -it -d -p 9090:9090 ${DOCKER_IMAGE}:${DOCKER_TAG}
+					 '''
+			}
+		}*/
 	}
 	
 	post {
 		success {
-			echo '실행 성공'
+			echo 'CI/CD 실행 성공'
 		}
 		failure {
-			echo '실행 실패'
+			echo 'CI/CD 실행 실패'
 		}
 	}
 }
