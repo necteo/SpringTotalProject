@@ -1,21 +1,9 @@
 pipeline {
 	agent any
 
-	// 전역변수 => ${SERVER_IP}
 	environment {
-        // 쉘 실행 시 인코딩을 UTF-8로 강제
         LANG = 'ko_KR.UTF-8'
         LC_ALL = 'ko_KR.UTF-8'
-    }
-    stages {
-        // ... 생략
-    }
-    post {
-        success {
-            // 이 시점에 다시 한번 인코딩 확인
-            sh 'echo "현재 쉘 언어: $LANG"'
-            echo "실행 성공"
-        }
     }
 
 	stages {
