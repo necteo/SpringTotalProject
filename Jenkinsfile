@@ -63,6 +63,7 @@ pipeline {
 				sh '''
 					kubectl delete deployment total-app || true
 					kubectl apply -f ~/k8s/deployment.yaml
+					minikube start
 					minikube service totalapp-service
 				'''
 			}
