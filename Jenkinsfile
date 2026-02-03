@@ -63,8 +63,8 @@ pipeline {
 				sh '''
 					kubectl delete deployment total-app || true
 					kubectl apply -f ~/k8s/deployment.yaml
-					minikube start
-					minikube service totalapp-service
+					kubectl get pods  # Pod가 잘 뜨는지 확인
+					kubectl get svc   # 서비스 상태 확인
 				'''
 			}
 		}
