@@ -56,6 +56,18 @@ pipeline {
 				'''
 			}
 		}
+		
+		stage('Docker Push') {
+		    steps {
+		        // 젠킨스에 등록한 자격 증명을 사용하여 로그인 및 푸시
+		        withCredentials([usernamePassword(credentialsId: 'docker-hub-id', 
+		                         passwordVariable: 'DOCKER_PASSWORD', 
+		                         usernameVariable: 'DOCKER_USERNAME')]) {
+		            sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+		            sh "docker push necteo/total-app:latest"
+		        }
+		    }
+		}
 
 		// 실행 명령
 		stage('Deploy to MiniKube') {
