@@ -3,8 +3,6 @@ pipeline {
 
 	// 전역변수 => ${SERVER_IP}
 	environment {
-		SERVER_IP = "34.224.165.166"
-		SERVER_USER = "ubuntu"
 		APP_DIR = "~/app"
 		JAR_NAME = "SpringTotalProject-0.0.1-SNAPSHOT.war"
 	}
@@ -65,6 +63,7 @@ pipeline {
 				sh '''
 					kubectl delete deployment total-app || true
 					kubectl apply -f ~/k8s/deployment.yaml
+					minikube service totalapp-service
 				'''
 			}
 		}
