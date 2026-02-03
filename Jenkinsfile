@@ -74,7 +74,7 @@ pipeline {
 				sh '''
 					kubectl delete deployment total-app || true
 					kubectl apply -f ~/k8s/deployment.yaml
-					kubectl rollout restart deployment totalapp-dep
+					kubectl rollout restart deployment totalapp-deployment
 					kubectl get pods  # Pod가 잘 뜨는지 확인
 					kubectl get svc   # 서비스 상태 확인loyment
 				'''
