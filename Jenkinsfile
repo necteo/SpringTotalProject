@@ -7,26 +7,6 @@ pipeline {
     }
 
 	stages {
-		/*
-		연결 확인 = ngrok
-		stage('Git Check Test') {
-			steps {
-				git branch: 'main',
-				url: 'https://github.com/necteo/SpringTotalProject.git'
-			}
-		}
-
-		stage('Check Git Info') {
-			steps {
-				sh '''
-						echo "===Git Info==="
-						git branch
-						git log -1
-					 '''
-			}
-		}
-		*/
-		// 감지 = main : push (commit)
 		stage('Check Out') {
 			steps {
 				echo 'Git Checkout'
@@ -72,11 +52,8 @@ pipeline {
 		stage('Deploy to MiniKube') {
 			steps {
 				sh '''
-					kubectl delete deployment total-app || true
-					kubectl apply -f ~/k8s/deployment.yaml
-					kubectl rollout restart deployment totalapp-deployment
-					kubectl get pods  # Pod가 잘 뜨는지 확인
-					kubectl get svc   # 서비스 상태 확인loyment
+					kubectl set image deployment/totalapp-deployment totalapp=necteo/total-app:${BUILD_NUMBER}
+        	kubectl rollout status deployment/totalapp-deployment --timeout=120s
 				'''
 			}
 		}
@@ -87,6 +64,7 @@ pipeline {
 			echo '실행 성공'
 		}
 		failure {
+			sh 'kubectl rollout undo deployment/totalapp-deployment || true'
 			echo '실행 실패'
 		}
 	}

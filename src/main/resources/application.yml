@@ -2,8 +2,12 @@
 #JSP / Security / Batch
 server:
   port: 9090
+  shutdown: graceful
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   mvc:
     view:
       prefix: /WEB-INF/views/
@@ -26,3 +30,13 @@ spring:
 mybatis:
   type-aliases-package: com.sist.web.vo
   mapper-locations: mybatis/mapper/*.xml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
