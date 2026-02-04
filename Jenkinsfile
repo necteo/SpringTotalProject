@@ -1,71 +1,89 @@
 pipeline {
-	agent any
+    agent any
 
-	environment {
+    environment {
         LANG = 'ko_KR.UTF-8'
         LC_ALL = 'ko_KR.UTF-8'
     }
 
-	stages {
-		stage('Check Out') {
-			steps {
-				echo 'Git Checkout'
-				checkout scm
-			}
-		}
+    stages {
+        stage('Check Out') {
+            steps {
+                checkout scm
+            }
+        }
 
-		// gradlew build => war파일을 다시 생성
-		stage('Gradle Permission') {
-			steps {
-				sh 'chmod +x gradlew'
-			}
-		}
+        stage('Gradle Permission') {
+            steps {
+                sh 'chmod +x gradlew'
+            }
+        }
 
-		// build 시작
-		stage('Gradle Build') {
-			steps {
-				sh './gradlew clean build'
-			}
-		}
+        stage('Gradle Build') {
+            steps {
+                sh './gradlew clean build'
+            }
+        }
 
-		stage('Docker Build') {
-			steps {
-				sh '''
-					docker build -t necteo/total-app:${BUILD_NUMBER} .
-				'''
-			}
-		}
-		
-		stage('Docker Push') {
-		    steps {
-		        // 젠킨스에 등록한 자격 증명을 사용하여 로그인 및 푸시
-		        withCredentials([usernamePassword(credentialsId: 'docker-hub-id', 
-		                         passwordVariable: 'DOCKER_PASSWORD', 
-		                         usernameVariable: 'DOCKER_USERNAME')]) {
-		            sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
-		            sh "docker push necteo/total-app:${BUILD_NUMBER}"
-		        }
-		    }
-		}
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t necteo/total-app:${BUILD_NUMBER} ."
+            }
+        }
 
-		// 실행 명령
-		stage('Deploy to MiniKube') {
-			steps {
-				sh '''
-					kubectl set image deployment/totalapp-deployment totalapp=necteo/total-app:${BUILD_NUMBER}
-        	kubectl rollout status deployment/totalapp-deployment --timeout=120s
-				'''
-			}
-		}
-	}
+        stage('Blue-Green Deploy') {
+            steps {
+                sh '''#!/bin/bash
+                    # 현재 Nginx가 바라보는 포트 확인
+                    CURRENT_PORT=$(grep -oP "server localhost:\\K[0-9]+" /etc/nginx/conf.d/totalapp.conf)
 
-	post {
-		success {
-			echo '실행 성공'
-		}
-		failure {
-			sh 'kubectl rollout undo deployment/totalapp-deployment || true'
-			echo '실행 실패'
-		}
-	}
+                    if [ "$CURRENT_PORT" == "9090" ]; then
+                        NEW_PORT=9091
+                        OLD_PORT=9090
+                    else
+                        NEW_PORT=9090
+                        OLD_PORT=9091
+                    fi
+
+                    echo "현재: $CURRENT_PORT → 새로운: $NEW_PORT"
+
+                    # 새 컨테이너 실행
+                    docker rm -f app-$NEW_PORT || true
+                    docker run -d --name app-$NEW_PORT -p $NEW_PORT:9090 necteo/total-app:${BUILD_NUMBER}
+
+                    # Ready 대기 (최대 90초)
+                    echo "앱 시작 대기 중..."
+                    for i in $(seq 1 45); do
+                        if curl -s http://localhost:$NEW_PORT/actuator/health/readiness | grep -q "UP"; then
+                            echo "새 컨테이너 Ready!"
+                            break
+                        fi
+                        sleep 2
+                    done
+
+                    # Nginx 포트 전환
+                    sudo sed -i "s/localhost:[0-9]*/localhost:$NEW_PORT/" /etc/nginx/conf.d/totalapp.conf
+                    sudo nginx -s reload
+
+                    echo "트래픽 전환 완료"
+
+                    # 잠시 대기 후 기존 컨테이너 종료
+                    sleep 5
+                    docker stop app-$OLD_PORT || true
+                    docker rm app-$OLD_PORT || true
+
+                    echo "배포 완료: localhost:$NEW_PORT"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '배포 성공'
+        }
+        failure {
+            echo '배포 실패'
+        }
+    }
 }
