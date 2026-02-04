@@ -30,53 +30,72 @@ pipeline {
                 sh "docker build -t necteo/total-app:${BUILD_NUMBER} ."
             }
         }
+        
+        stage('Docker Push') {
+				    steps {
+				        withCredentials([usernamePassword(credentialsId: 'docker-hub-id',
+				                         passwordVariable: 'DOCKER_PASSWORD',
+				                         usernameVariable: 'DOCKER_USERNAME')]) {
+				            sh "docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}"
+				            sh "docker push necteo/total-app:${BUILD_NUMBER}"
+				        }
+				    }
+				}
 
         stage('Blue-Green Deploy') {
-            steps {
-                sh '''#!/bin/bash
-                    # 현재 Nginx가 바라보는 포트 확인
-                    CURRENT_PORT=$(grep -oP "server localhost:\\K[0-9]+" /etc/nginx/conf.d/totalapp.conf)
-
-                    if [ "$CURRENT_PORT" == "9090" ]; then
-                        NEW_PORT=9091
-                        OLD_PORT=9090
-                    else
-                        NEW_PORT=9090
-                        OLD_PORT=9091
-                    fi
-
-                    echo "현재: $CURRENT_PORT → 새로운: $NEW_PORT"
-
-                    # 새 컨테이너 실행
-                    docker rm -f app-$NEW_PORT || true
-                    docker run -d --name app-$NEW_PORT -p $NEW_PORT:9090 necteo/total-app:${BUILD_NUMBER}
-
-                    # Ready 대기 (최대 90초)
-                    echo "앱 시작 대기 중..."
-                    for i in $(seq 1 45); do
-                        if curl -s http://localhost:$NEW_PORT/actuator/health/readiness | grep -q "UP"; then
-                            echo "새 컨테이너 Ready!"
-                            break
-                        fi
-                        sleep 2
-                    done
-
-                    # Nginx 포트 전환
-                    sudo sed -i "s/localhost:[0-9]*/localhost:$NEW_PORT/" /etc/nginx/conf.d/totalapp.conf
-                    sudo nginx -s reload
-
-                    echo "트래픽 전환 완료"
-
-                    # 잠시 대기 후 기존 컨테이너 종료
-                    sleep 5
-                    docker stop app-$OLD_PORT || true
-                    docker rm app-$OLD_PORT || true
-
-                    echo "배포 완료: localhost:$NEW_PORT"
-                '''
-            }
-        }
-    }
+				    steps {
+				        sh '''#!/bin/bash
+				            # 현재 Nginx가 바라보는 포트 확인
+				            CURRENT_PORT=$(grep -oP "server localhost:\\K[0-9]+" /etc/nginx/conf.d/totalapp.conf)
+				
+				            if [ "$CURRENT_PORT" == "9090" ]; then
+				                NEW_PORT=9091
+				                OLD_PORT=9090
+				            else
+				                NEW_PORT=9090
+				                OLD_PORT=9091
+				            fi
+				
+				            echo "현재: $CURRENT_PORT → 새로운: $NEW_PORT"
+				
+				            # 새 컨테이너 실행
+				            docker rm -f app-$NEW_PORT || true
+				            docker run -d --name app-$NEW_PORT -p $NEW_PORT:9090 necteo/total-app:${BUILD_NUMBER}
+				
+				            # Ready 대기 (최대 90초)
+				            echo "앱 시작 대기 중..."
+				            READY=false
+				            for i in $(seq 1 45); do
+				                if curl -s http://localhost:$NEW_PORT/actuator/health/readiness | grep -q "UP"; then
+				                    echo "새 컨테이너 Ready!"
+				                    READY=true
+				                    break
+				                fi
+				                sleep 2
+				            done
+				
+				            # Ready 안 되면 실패 처리
+				            if [ "$READY" != "true" ]; then
+				                echo "컨테이너 시작 실패"
+				                docker rm -f app-$NEW_PORT || true
+				                exit 1
+				            fi
+				
+				            # Nginx 포트 전환
+				            sudo sed -i "s/localhost:[0-9]*/localhost:$NEW_PORT/" /etc/nginx/conf.d/totalapp.conf
+				            sudo nginx -s reload
+				
+				            echo "트래픽 전환 완료"
+				
+				            # 잠시 대기 후 기존 컨테이너 종료
+				            sleep 5
+				            docker stop app-$OLD_PORT || true
+				            docker rm app-$OLD_PORT || true
+				
+				            echo "배포 완료: localhost:$NEW_PORT"
+				        '''
+				    }
+				}
 
     post {
         success {
